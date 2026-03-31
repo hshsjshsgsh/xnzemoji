@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emoji Maker</title>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #050a05;
+    --green-dim: #0d2b0d;
+    --green-mid: #1a4a1a;
+    --green-bright: #00ff41;
+    --green-glow: #39ff14;
+    --green-soft: #2ecc71;
+    --border: #1f6b1f;
+    --text: #c8ffc8;
+    --surface: #0a180a;
+    --surface2: #0f220f;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Matrix-style background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,255,65,0.03) 4px),
+      repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,255,65,0.02) 2px, rgba(0,255,65,0.02) 4px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(0,255,65,0.07) 0%, transparent 70%),
+                radial-gradient(ellipse at 0% 100%, rgba(0,200,50,0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 100% 50%, rgba(0,180,40,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Scanlines */
+  .scanlines {
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 3px,
+      rgba(0,0,0,0.15) 3px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.4;
+  }
+
+  .container {
+    position: relative;
+    z-index: 2;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 20px 60px;
+  }
+
+  /* Title */
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+
+  .title {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--green-bright);
+    text-shadow:
+      0 0 8px var(--green-bright),
+      0 0 20px rgba(0,255,65,0.5),
+      0 0 40px rgba(0,255,65,0.2);
+    position: relative;
+  }
+
+  .title span {
+    color: var(--green-soft);
+  }
+
+  .title-bracket {
+    color: rgba(0,255,65,0.4);
+    font-size: 0.7em;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    color: rgba(0,255,65,0.4);
+    letter-spacing: 0.3em;
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+
+  /* Preview area */
+  .preview-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 24px;
+    box-shadow:
+      0 0 0 1px rgba(0,255,65,0.08),
+      inset 0 0 30px rgba(0,0,0,0.5),
+      0 4px 30px rgba(0,255,65,0.06);
+    position: relative;
+  }
+
+  .preview-label {
+    font-size: 10px;
+    color: rgba(0,255,65,0.35);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+
+  .preview-area {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-width: 280px;
+    margin: 0 auto;
+    background: transparent;
+    border: 1px dashed rgba(0,255,65,0.15);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Checkerboard transparent background indicator */
+  .preview-area::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(45deg, #111 25%, transparent 25%),
+      linear-gradient(-45deg, #111 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #111 75%),
+      linear-gradient(-45deg, transparent 75%, #111 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    opacity: 0.3;
+    border-radius: 8px;
+  }
+
+  #preview-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+  }
+
+  .preview-placeholder {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: rgba(0,255,65,0.2);
+    letter-spacing: 0.2em;
+    text-align: center;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Virtual Keyboard */
+  .keyboard-wrapper {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 12px;
+    margin-bottom: 24px;
+    box-shadow: inset 0 2px 12px rgba(0,0,0,0.4);
+  }
+
+  .keyboard-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    align-items: center;
+  }
+
+  .text-input {
+    flex: 1;
+    background: rgba(0,255,65,0.04);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--green-bright);
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    letter-spacing: 0.05em;
+  }
+
+  .text-input:focus {
+    border-color: var(--green-bright);
+    box-shadow: 0 0 0 2px rgba(0,255,65,0.1);
+  }
+
+  .text-input::placeholder { color: rgba(0,255,65,0.2); }
+
+  .btn-clear {
+    background: rgba(255,50,50,0.1);
+    border: 1px solid rgba(255,80,80,0.3);
+    color: rgba(255,100,100,0.8);
+    border-radius: 6px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-clear:hover {
+    background: rgba(255,50,50,0.2);
+    border-color: rgba(255,80,80,0.6);
+    color: #ff6666;
+  }
+
+  .keyboard-rows { display: flex; flex-direction: column; gap: 6px; }
+
+  .key-row {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .key {
+    min-width: 36px;
+    height: 36px;
+    background: var(--green-dim);
+    border: 1px solid var(--border);
+    border-bottom: 2px solid rgba(0,100,0,0.6);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.08s;
+    padding: 0 8px;
+    user-select: none;
+    letter-spacing: 0.03em;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .key:hover {
+    background: rgba(0,255,65,0.12);
+    border-color: var(--green-bright);
+    color: var(--green-bright);
+    text-shadow: 0 0 6px var(--green-bright);
+  }
+
+  .key:active {
+    transform: translateY(1px);
+    border-bottom-width: 1px;
+    background: rgba(0,255,65,0.2);
+  }
+
+  .key.wide { min-width: 70px; }
+  .key.wider { min-width: 100px; }
+  .key.widest { min-width: 200px; }
+  .key.shift { min-width: 80px; }
+  .key.action {
+    background: rgba(0,255,65,0.08);
+    color: rgba(0,255,65,0.6);
+    font-size: 11px;
+  }
+
+  /* Color controls */
+  .color-section {
+    margin-bottom: 20px;
+  }
+
+  .color-toggle-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .btn-toggle {
+    flex: 1;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: rgba(0,255,65,0.5);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .btn-toggle:hover {
+    border-color: var(--green-bright);
+    color: var(--green-bright);
+  }
+
+  .btn-toggle.active {
+    background: rgba(0,255,65,0.1);
+    border-color: var(--green-bright);
+    color: var(--green-bright);
+    box-shadow: 0 0 12px rgba(0,255,65,0.15);
+    text-shadow: 0 0 8px rgba(0,255,65,0.5);
+  }
+
+  .color-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    display: none;
+    animation: slideDown 0.2s ease;
+  }
+
+  .color-panel.visible { display: block; }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .panel-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .panel-label {
+    font-size: 11px;
+    color: rgba(0,255,65,0.5);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    min-width: 80px;
+  }
+
+  .direction-btns {
+    display: flex;
+    gap: 6px;
+  }
+
+  .btn-dir {
+    padding: 6px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: rgba(0,255,65,0.5);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .btn-dir.active, .btn-dir:hover {
+    background: rgba(0,255,65,0.1);
+    border-color: var(--green-bright);
+    color: var(--green-bright);
+  }
+
+  .colors-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+
+  .color-slot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .color-slot input[type="color"] {
+    width: 30px;
+    height: 26px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 0;
+  }
+
+  .color-slot .slot-label {
+    font-size: 10px;
+    color: rgba(0,255,65,0.4);
+    letter-spacing: 0.1em;
+  }
+
+  .btn-remove-color {
+    background: none;
+    border: none;
+    color: rgba(255,80,80,0.5);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+    transition: color 0.15s;
+  }
+
+  .btn-remove-color:hover { color: #ff6666; }
+
+  .btn-add-color {
+    padding: 7px 14px;
+    background: rgba(0,255,65,0.06);
+    border: 1px dashed rgba(0,255,65,0.3);
+    border-radius: 6px;
+    color: rgba(0,255,65,0.6);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+
+  .btn-add-color:hover {
+    background: rgba(0,255,65,0.12);
+    border-color: var(--green-bright);
+    color: var(--green-bright);
+  }
+
+  /* Gradient specific */
+  .gradient-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  .slider-track {
+    flex: 1;
+    min-width: 120px;
+    position: relative;
+    height: 6px;
+    background: linear-gradient(to right, var(--surface2), var(--green-mid));
+    border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    background: linear-gradient(to right, rgba(0,255,65,0.3), var(--green-bright));
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--green-bright);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,255,65,0.6);
+    transition: box-shadow 0.15s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 12px rgba(0,255,65,0.9);
+  }
+
+  .slider-value {
+    font-size: 14px;
+    color: var(--green-bright);
+    font-weight: 700;
+    min-width: 36px;
+    text-align: right;
+    text-shadow: 0 0 6px rgba(0,255,65,0.5);
+  }
+
+  /* Action buttons */
+  .action-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+
+  .btn-action {
+    flex: 1;
+    min-width: 140px;
+    padding: 14px 20px;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-download {
+    background: rgba(0,255,65,0.08);
+    border-color: var(--green-bright);
+    color: var(--green-bright);
+    text-shadow: 0 0 6px rgba(0,255,65,0.4);
+  }
+
+  .btn-download:hover {
+    background: rgba(0,255,65,0.18);
+    box-shadow: 0 0 16px rgba(0,255,65,0.2);
+  }
+
+  .btn-discord {
+    background: rgba(88,101,242,0.12);
+    border-color: #5865f2;
+    color: #7289da;
+  }
+
+  .btn-discord:hover {
+    background: rgba(88,101,242,0.22);
+    box-shadow: 0 0 16px rgba(88,101,242,0.25);
+    color: #99aeff;
+  }
+
+  /* Discord modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-overlay.visible { display: flex; }
+
+  .modal {
+    background: #0d1a0d;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 30px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 0 40px rgba(0,255,65,0.1), 0 20px 60px rgba(0,0,0,0.8);
+  }
+
+  .modal h3 {
+    font-family: 'Space Mono', monospace;
+    color: var(--green-bright);
+    font-size: 16px;
+    margin-bottom: 6px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .modal p {
+    font-size: 12px;
+    color: rgba(0,255,65,0.45);
+    margin-bottom: 20px;
+    line-height: 1.6;
+    letter-spacing: 0.03em;
+  }
+
+  .modal input[type="text"] {
+    width: 100%;
+    background: rgba(0,255,65,0.04);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--green-bright);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    margin-bottom: 10px;
+    letter-spacing: 0.05em;
+  }
+
+  .modal input[type="text"]:focus {
+    border-color: var(--green-bright);
+    box-shadow: 0 0 0 2px rgba(0,255,65,0.1);
+  }
+
+  .modal input[type="text"]::placeholder { color: rgba(0,255,65,0.2); }
+
+  .modal-note {
+    font-size: 10px;
+    color: rgba(0,255,65,0.3);
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  .modal-btns {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .btn-modal {
+    flex: 1;
+    padding: 10px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .btn-modal-primary {
+    background: rgba(88,101,242,0.2);
+    border: 1px solid #5865f2;
+    color: #99aeff;
+  }
+
+  .btn-modal-primary:hover {
+    background: rgba(88,101,242,0.35);
+  }
+
+  .btn-modal-cancel {
+    background: rgba(255,50,50,0.08);
+    border: 1px solid rgba(255,80,80,0.3);
+    color: rgba(255,100,100,0.7);
+  }
+
+  .btn-modal-cancel:hover {
+    background: rgba(255,50,50,0.15);
+  }
+
+  .status-msg {
+    font-size: 11px;
+    padding: 8px;
+    border-radius: 5px;
+    margin-top: 10px;
+    text-align: center;
+    display: none;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .status-msg.success {
+    display: block;
+    background: rgba(0,255,65,0.1);
+    border: 1px solid rgba(0,255,65,0.3);
+    color: var(--green-bright);
+  }
+
+  .status-msg.error {
+    display: block;
+    background: rgba(255,50,50,0.1);
+    border: 1px solid rgba(255,80,80,0.3);
+    color: #ff8080;
+  }
+
+  /* Glow pulse on title */
+  @keyframes glowPulse {
+    0%, 100% { text-shadow: 0 0 8px var(--green-bright), 0 0 20px rgba(0,255,65,0.5); }
+    50% { text-shadow: 0 0 16px var(--green-bright), 0 0 40px rgba(0,255,65,0.7), 0 0 60px rgba(0,255,65,0.3); }
+  }
+
+  .title { animation: glowPulse 3s ease-in-out infinite; }
+
+  /* Font size control */
+  .font-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+
+  .font-control label {
+    font-size: 11px;
+    color: rgba(0,255,65,0.45);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 600px) {
+    .key { min-width: 28px; height: 32px; font-size: 10px; padding: 0 5px; }
+    .key.wide { min-width: 52px; }
+    .key.wider { min-width: 72px; }
+    .key.widest { min-width: 140px; }
+    .key.shift { min-width: 60px; }
+    .key-row { gap: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+
+<div class="container">
+  <header>
+    <div class="title"><span class="title-bracket">[</span> EMOJI MAKER <span class="title-bracket">]</span></div>
+    <div class="subtitle">design · export · deploy</div>
+  </header>
+
+  <!-- Preview -->
+  <div class="preview-wrapper">
+    <div class="preview-label">// preview output</div>
+    <div class="preview-area">
+      <canvas id="preview-canvas" width="280" height="280"></canvas>
+      <div class="preview-placeholder" id="placeholder-text">TYPE SOMETHING<br>TO BEGIN</div>
+    </div>
+  </div>
+
+  <!-- Font size -->
+  <div class="font-control">
+    <label>SIZE</label>
+    <input type="range" id="font-size-slider" min="20" max="200" value="80" style="flex:1">
+    <span class="slider-value" id="font-size-val">80</span>
+    <span style="font-size:11px; color: rgba(0,255,65,0.3);">px</span>
+  </div>
+
+  <!-- Virtual Keyboard -->
+  <div class="keyboard-wrapper">
+    <div class="keyboard-input-row">
+      <input type="text" id="text-input" class="text-input" placeholder="type or click keys..." maxlength="12" autocomplete="off">
+      <button class="btn-clear" onclick="clearText()">⌫ CLEAR</button>
+    </div>
+    <div class="keyboard-rows" id="keyboard"></div>
+  </div>
+
+  <!-- Color Controls -->
+  <div class="color-section">
+    <div class="color-toggle-row">
+      <button class="btn-toggle" id="btn-normal" onclick="togglePanel('normal')">◼ Normal Color</button>
+      <button class="btn-toggle" id="btn-gradient" onclick="togglePanel('gradient')">◈ Gradient Color</button>
+    </div>
+
+    <!-- Normal Color Panel -->
+    <div class="color-panel" id="panel-normal">
+      <div class="panel-row">
+        <span class="panel-label">Direction</span>
+        <div class="direction-btns">
+          <button class="btn-dir active" id="dir-h" onclick="setDirection('normal','horizontal')">→ Horizontal</button>
+          <button class="btn-dir" id="dir-v" onclick="setDirection('normal','vertical')">↓ Vertical</button>
+        </div>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label">Colors</span>
+        <div class="colors-list" id="normal-colors-list"></div>
+        <button class="btn-add-color" onclick="addColor('normal')">+ Add Color</button>
+      </div>
+    </div>
+
+    <!-- Gradient Color Panel -->
+    <div class="color-panel" id="panel-gradient">
+      <div class="panel-row">
+        <span class="panel-label">Direction</span>
+        <div class="direction-btns">
+          <button class="btn-dir active" id="gdir-h" onclick="setDirection('gradient','horizontal')">→ Horizontal</button>
+          <button class="btn-dir" id="gdir-v" onclick="setDirection('gradient','vertical')">↓ Vertical</button>
+        </div>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label">Colors</span>
+        <div class="colors-list" id="gradient-colors-list"></div>
+        <button class="btn-add-color" onclick="addColor('gradient')">+ Add Color</button>
+      </div>
+      <div class="gradient-slider-row">
+        <span class="panel-label">Smoothness</span>
+        <input type="range" id="gradient-strength" min="1" max="100" value="50" oninput="updateGradient()">
+        <span class="slider-value" id="gradient-val">50</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="action-row">
+    <button class="btn-action btn-download" onclick="downloadPNG()">
+      ⬇ Download PNG
+    </button>
+    <button class="btn-action btn-discord" onclick="showDiscordModal()">
+      ⬡ Add to Server as Emoji
+    </button>
+  </div>
+</div>
+
+<!-- Discord Modal -->
+<div class="modal-overlay" id="discord-modal">
+  <div class="modal">
+    <h3>⬡ Add to Discord</h3>
+    <p>Enter your bot token and server (guild) ID to add this as a custom emoji. The emoji name must be 2–32 chars, letters/numbers/underscores only.</p>
+    <input type="text" id="modal-token" placeholder="Bot Token (MTQ2...)" autocomplete="off">
+    <input type="text" id="modal-guild" placeholder="Server (Guild) ID">
+    <input type="text" id="modal-emoji-name" placeholder="Emoji name (e.g. glob_text)">
+    <div class="modal-note">
+      ⚠ Your token is sent to Discord's API directly from your browser (no server involved).<br>
+      Never share your bot token publicly.
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal btn-modal-cancel" onclick="hideDiscordModal()">Cancel</button>
+      <button class="btn-modal btn-modal-primary" onclick="uploadEmoji()">Upload Emoji</button>
+    </div>
+    <div class="status-msg" id="modal-status"></div>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+  text: '',
+  fontSize: 80,
+  mode: null, // 'normal' | 'gradient' | null
+  normal: {
+    direction: 'horizontal',
+    colors: ['#00ff41', '#39ff14'],
+  },
+  gradient: {
+    direction: 'horizontal',
+    colors: ['#ff007f', '#5865f2'],
+    strength: 50,
+  }
+};
+
+// ── Canvas ───────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('preview-canvas');
+const ctx = canvas.getContext('2d');
+const placeholder = document.getElementById('placeholder-text');
+
+function resizeCanvas() {
+  const area = document.querySelector('.preview-area');
+  const size = area.clientWidth;
+  canvas.width = size;
+  canvas.height = size;
+  renderPreview();
+}
+
+function renderPreview() {
+  const size = canvas.width;
+  ctx.clearRect(0, 0, size, size);
+
+  if (!state.text) {
+    placeholder.style.display = 'flex';
+    return;
+  }
+  placeholder.style.display = 'none';
+
+  const fs = state.fontSize;
+  ctx.font = `${fs}px 'Lilita One', cursive`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const cx = size / 2, cy = size / 2;
+
+  if (state.mode === 'normal') {
+    applyNormalColor(cx, cy, size);
+  } else if (state.mode === 'gradient') {
+    applyGradientColor(cx, cy, size);
+  } else {
+    ctx.fillStyle = '#00ff41';
+    ctx.fillText(state.text, cx, cy);
+  }
+}
+
+function applyNormalColor(cx, cy, size) {
+  const { colors, direction } = state.normal;
+  if (!colors.length) { ctx.fillStyle = '#00ff41'; ctx.fillText(state.text, cx, cy); return; }
+  if (colors.length === 1) { ctx.fillStyle = colors[0]; ctx.fillText(state.text, cx, cy); return; }
+
+  let grad;
+  if (direction === 'horizontal') {
+    grad = ctx.createLinearGradient(0, cy, size, cy);
+  } else {
+    grad = ctx.createLinearGradient(cx, 0, cx, size);
+  }
+  colors.forEach((c, i) => grad.addColorStop(i / (colors.length - 1), c));
+  ctx.fillStyle = grad;
+  ctx.fillText(state.text, cx, cy);
+}
+
+function applyGradientColor(cx, cy, size) {
+  const { colors, direction, strength } = state.gradient;
+  if (!colors.length) { ctx.fillStyle = '#5865f2'; ctx.fillText(state.text, cx, cy); return; }
+  if (colors.length === 1) { ctx.fillStyle = colors[0]; ctx.fillText(state.text, cx, cy); return; }
+
+  let grad;
+  if (direction === 'horizontal') {
+    grad = ctx.createLinearGradient(0, cy, size, cy);
+  } else {
+    grad = ctx.createLinearGradient(cx, 0, cx, size);
+  }
+
+  // Smooth blending based on strength (1=sharp bands, 100=super smooth)
+  const smooth = strength / 100;
+  colors.forEach((c, i) => {
+    const pos = i / (colors.length - 1);
+    if (smooth < 0.5) {
+      // At low smoothness, add hard band stops
+      const band = (1 - smooth * 2) * 0.08;
+      if (i > 0) grad.addColorStop(Math.max(0, pos - band), c);
+      grad.addColorStop(pos, c);
+      if (i < colors.length - 1) grad.addColorStop(Math.min(1, pos + band), c);
+    } else {
+      grad.addColorStop(pos, c);
+    }
+  });
+
+  ctx.fillStyle = grad;
+  ctx.fillText(state.text, cx, cy);
+}
+
+// ── Text input ───────────────────────────────────────────────────────────────
+const textInput = document.getElementById('text-input');
+textInput.addEventListener('input', (e) => {
+  state.text = e.target.value.slice(0, 12);
+  textInput.value = state.text;
+  renderPreview();
+});
+
+function clearText() {
+  state.text = '';
+  textInput.value = '';
+  renderPreview();
+}
+
+// ── Font size ────────────────────────────────────────────────────────────────
+document.getElementById('font-size-slider').addEventListener('input', (e) => {
+  state.fontSize = parseInt(e.target.value);
+  document.getElementById('font-size-val').textContent = state.fontSize;
+  renderPreview();
+});
+
+// ── Keyboard ─────────────────────────────────────────────────────────────────
+const rows = [
+  ['1','2','3','4','5','6','7','8','9','0'],
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['Z','X','C','V','B','N','M'],
+];
+
+const specialRows = [
+  [{label:'!',w:''},{label:'@',w:''},{label:'#',w:''},{label:'$',w:''},{label:'%',w:''},{label:'^',w:''},{label:'&',w:''},{label:'*',w:''},{label:'(',w:''},{label:')',w:''}],
+  [{label:'.',w:''},{label:',',w:''},{label:'?',w:''},{label:'!',w:''},{label:'-',w:''},{label:'_',w:''},{label:':',w:''},{label:';',w:''},{label:'/',w:''},{label:'\\',w:''}],
+];
+
+let shifted = false;
+let showSpecial = false;
+
+function buildKeyboard() {
+  const kb = document.getElementById('keyboard');
+  kb.innerHTML = '';
+
+  (showSpecial ? specialRows : rows).forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'key-row';
+    row.forEach(k => {
+      const btn = document.createElement('button');
+      btn.className = 'key' + (k.w ? ' ' + k.w : '');
+      const char = typeof k === 'string' ? k : k.label;
+      btn.textContent = shifted ? char.toUpperCase() : char.toLowerCase();
+      btn.addEventListener('click', () => typeChar(shifted ? char.toUpperCase() : char));
+      rowEl.appendChild(btn);
+    });
+    kb.appendChild(rowEl);
+  });
+
+  // Control row
+  const ctrl = document.createElement('div');
+  ctrl.className = 'key-row';
+
+  const shiftBtn = document.createElement('button');
+  shiftBtn.className = 'key shift action';
+  shiftBtn.textContent = shifted ? '⬆ SHIFT ✓' : '⬆ SHIFT';
+  shiftBtn.style.color = shifted ? 'var(--green-bright)' : '';
+  shiftBtn.addEventListener('click', () => { shifted = !shifted; buildKeyboard(); });
+
+  const spaceBtn = document.createElement('button');
+  spaceBtn.className = 'key widest action';
+  spaceBtn.textContent = '── SPACE ──';
+  spaceBtn.addEventListener('click', () => typeChar(' '));
+
+  const specBtn = document.createElement('button');
+  specBtn.className = 'key wide action';
+  specBtn.textContent = showSpecial ? 'ABC' : '!@#';
+  specBtn.addEventListener('click', () => { showSpecial = !showSpecial; buildKeyboard(); });
+
+  const backBtn = document.createElement('button');
+  backBtn.className = 'key wide action';
+  backBtn.textContent = '⌫ DEL';
+  backBtn.addEventListener('click', () => {
+    state.text = state.text.slice(0, -1);
+    textInput.value = state.text;
+    renderPreview();
+  });
+
+  ctrl.appendChild(shiftBtn);
+  ctrl.appendChild(spaceBtn);
+  ctrl.appendChild(specBtn);
+  ctrl.appendChild(backBtn);
+  kb.appendChild(ctrl);
+}
+
+function typeChar(c) {
+  if (state.text.length >= 12) return;
+  state.text += c;
+  textInput.value = state.text;
+  renderPreview();
+}
+
+buildKeyboard();
+
+// Physical keyboard support
+window.addEventListener('keydown', (e) => {
+  if (e.target === textInput) return; // already handled by input event
+  if (e.key === 'Backspace') {
+    state.text = state.text.slice(0, -1);
+    textInput.value = state.text;
+    renderPreview();
+  } else if (e.key.length === 1 && state.text.length < 12) {
+    state.text += e.key;
+    textInput.value = state.text;
+    renderPreview();
+  }
+});
+
+// ── Color panels ─────────────────────────────────────────────────────────────
+function togglePanel(type) {
+  const otherType = type === 'normal' ? 'gradient' : 'normal';
+  const panel = document.getElementById(`panel-${type}`);
+  const otherPanel = document.getElementById(`panel-${otherType}`);
+  const btn = document.getElementById(`btn-${type}`);
+  const otherBtn = document.getElementById(`btn-${otherType}`);
+
+  if (state.mode === type) {
+    state.mode = null;
+    panel.classList.remove('visible');
+    btn.classList.remove('active');
+  } else {
+    state.mode = type;
+    panel.classList.add('visible');
+    btn.classList.add('active');
+    otherPanel.classList.remove('visible');
+    otherBtn.classList.remove('active');
+  }
+  renderColors(type);
+  renderPreview();
+}
+
+function setDirection(type, dir) {
+  state[type].direction = dir;
+  if (type === 'normal') {
+    document.getElementById('dir-h').classList.toggle('active', dir === 'horizontal');
+    document.getElementById('dir-v').classList.toggle('active', dir === 'vertical');
+  } else {
+    document.getElementById('gdir-h').classList.toggle('active', dir === 'horizontal');
+    document.getElementById('gdir-v').classList.toggle('active', dir === 'vertical');
+  }
+  renderPreview();
+}
+
+function addColor(type) {
+  const defaults = ['#ff007f','#5865f2','#00ff41','#ff8c00','#00bfff','#ff4444'];
+  const c = defaults[state[type].colors.length % defaults.length];
+  state[type].colors.push(c);
+  renderColors(type);
+  renderPreview();
+}
+
+function removeColor(type, idx) {
+  if (state[type].colors.length <= 1) return;
+  state[type].colors.splice(idx, 1);
+  renderColors(type);
+  renderPreview();
+}
+
+function renderColors(type) {
+  const list = document.getElementById(`${type}-colors-list`);
+  list.innerHTML = '';
+  state[type].colors.forEach((color, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'color-slot';
+    slot.innerHTML = `
+      <span class="slot-label">C${i+1}</span>
+      <input type="color" value="${color}" oninput="updateColor('${type}',${i},this.value)">
+      <button class="btn-remove-color" onclick="removeColor('${type}',${i})" title="Remove">×</button>
+    `;
+    list.appendChild(slot);
+  });
+}
+
+function updateColor(type, idx, val) {
+  state[type].colors[idx] = val;
+  renderPreview();
+}
+
+function updateGradient() {
+  const val = parseInt(document.getElementById('gradient-strength').value);
+  state.gradient.strength = val;
+  document.getElementById('gradient-val').textContent = val;
+  renderPreview();
+}
+
+// Init color panels
+renderColors('normal');
+renderColors('gradient');
+
+// ── Download PNG ─────────────────────────────────────────────────────────────
+function downloadPNG() {
+  if (!state.text) {
+    alert('Type something first!');
+    return;
+  }
+  // Render at 512×512 for emoji quality
+  const offscreen = document.createElement('canvas');
+  offscreen.width = 512;
+  offscreen.height = 512;
+  const c = offscreen.getContext('2d');
+  const size = 512;
+  const cx = size / 2, cy = size / 2;
+
+  c.clearRect(0, 0, size, size);
+  const scaleFactor = 512 / canvas.width;
+  const fs = state.fontSize * scaleFactor;
+  c.font = `${fs}px 'Lilita One', cursive`;
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+
+  if (state.mode === 'normal') {
+    const { colors, direction } = state.normal;
+    if (colors.length === 1) { c.fillStyle = colors[0]; }
+    else {
+      let g = direction === 'horizontal'
+        ? c.createLinearGradient(0, cy, size, cy)
+        : c.createLinearGradient(cx, 0, cx, size);
+      colors.forEach((col, i) => g.addColorStop(i / (colors.length - 1), col));
+      c.fillStyle = g;
+    }
+  } else if (state.mode === 'gradient') {
+    const { colors, direction, strength } = state.gradient;
+    if (colors.length === 1) { c.fillStyle = colors[0]; }
+    else {
+      let g = direction === 'horizontal'
+        ? c.createLinearGradient(0, cy, size, cy)
+        : c.createLinearGradient(cx, 0, cx, size);
+      const smooth = strength / 100;
+      colors.forEach((col, i) => {
+        const pos = i / (colors.length - 1);
+        if (smooth < 0.5) {
+          const band = (1 - smooth * 2) * 0.08;
+          if (i > 0) g.addColorStop(Math.max(0, pos - band), col);
+          g.addColorStop(pos, col);
+          if (i < colors.length - 1) g.addColorStop(Math.min(1, pos + band), col);
+        } else {
+          g.addColorStop(pos, col);
+        }
+      });
+      c.fillStyle = g;
+    }
+  } else {
+    c.fillStyle = '#00ff41';
+  }
+
+  c.fillText(state.text, cx, cy);
+
+  const link = document.createElement('a');
+  link.download = `emoji_${state.text}_${Date.now()}.png`;
+  link.href = offscreen.toDataURL('image/png');
+  link.click();
+}
+
+// ── Discord Modal ─────────────────────────────────────────────────────────────
+function showDiscordModal() {
+  if (!state.text) { alert('Type something first!'); return; }
+  document.getElementById('discord-modal').classList.add('visible');
+  const safe = state.text.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '') || 'emoji';
+  document.getElementById('modal-emoji-name').value = safe;
+  document.getElementById('modal-status').className = 'status-msg';
+  document.getElementById('modal-status').textContent = '';
+}
+
+function hideDiscordModal() {
+  document.getElementById('discord-modal').classList.remove('visible');
+}
+
+async function uploadEmoji() {
+  const token = document.getElementById('modal-token').value.trim();
+  const guildId = document.getElementById('modal-guild').value.trim();
+  const emojiName = document.getElementById('modal-emoji-name').value.trim();
+  const status = document.getElementById('modal-status');
+
+  if (!token || !guildId || !emojiName) {
+    status.className = 'status-msg error';
+    status.textContent = '⚠ Please fill in all fields.';
+    return;
+  }
+
+  if (!/^[a-zA-Z0-9_]{2,32}$/.test(emojiName)) {
+    status.className = 'status-msg error';
+    status.textContent = '⚠ Emoji name: 2-32 chars, letters/numbers/underscores only.';
+    return;
+  }
+
+  // Render to 128×128 (Discord emoji size)
+  const offscreen = document.createElement('canvas');
+  offscreen.width = 128;
+  offscreen.height = 128;
+  const c = offscreen.getContext('2d');
+  const size = 128;
+  const cx = size / 2, cy = size / 2;
+  c.clearRect(0, 0, size, size);
+  const scaleFactor = 128 / canvas.width;
+  const fs = Math.min(state.fontSize * scaleFactor, 90);
+  c.font = `${fs}px 'Lilita One', cursive`;
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+
+  if (state.mode === 'normal') {
+    const { colors, direction } = state.normal;
+    if (colors.length === 1) { c.fillStyle = colors[0]; }
+    else {
+      let g = direction === 'horizontal'
+        ? c.createLinearGradient(0,cy,size,cy)
+        : c.createLinearGradient(cx,0,cx,size);
+      colors.forEach((col, i) => g.addColorStop(i / (colors.length - 1), col));
+      c.fillStyle = g;
+    }
+  } else if (state.mode === 'gradient') {
+    const { colors, direction, strength } = state.gradient;
+    if (colors.length === 1) { c.fillStyle = colors[0]; }
+    else {
+      let g = direction === 'horizontal'
+        ? c.createLinearGradient(0,cy,size,cy)
+        : c.createLinearGradient(cx,0,cx,size);
+      colors.forEach((col, i) => g.addColorStop(i / (colors.length - 1), col));
+      c.fillStyle = g;
+    }
+  } else {
+    c.fillStyle = '#00ff41';
+  }
+  c.fillText(state.text, cx, cy);
+
+  const dataUrl = offscreen.toDataURL('image/png');
+
+  status.className = 'status-msg';
+  status.style.display = 'block';
+  status.style.background = 'rgba(0,255,65,0.05)';
+  status.style.border = '1px solid rgba(0,255,65,0.2)';
+  status.style.color = 'rgba(0,255,65,0.6)';
+  status.textContent = '⏳ Uploading to Discord...';
+
+  try {
+    const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/emojis`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bot ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: emojiName,
+        image: dataUrl,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      status.className = 'status-msg success';
+      status.textContent = `✅ Emoji :${data.name}: added successfully!`;
+    } else {
+      status.className = 'status-msg error';
+      status.textContent = `❌ Discord error: ${data.message || JSON.stringify(data)}`;
+    }
+  } catch (err) {
+    status.className = 'status-msg error';
+    status.textContent = `❌ Network error: ${err.message}. Check CORS — run the bot on the same domain or use a proxy.`;
+  }
+}
+
+// Close modal on overlay click
+document.getElementById('discord-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) hideDiscordModal();
+});
+
+// ── Resize ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', resizeCanvas);
+setTimeout(resizeCanvas, 100); // wait for fonts
+</script>
+</body>
+</html>
